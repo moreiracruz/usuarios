@@ -90,6 +90,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up JDK 17
@@ -105,21 +106,24 @@ jobs:
 
       - name: Release Prepare
         run: |
+          # Obtém versão atual do POM
           CURRENT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          RELEASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
-          NEXT_VERSION=$(echo $RELEASE_VERSION | awk -F. '{$NF = $NF + 1; print $0}' | tr ' ' '.').0-SNAPSHOT
           
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git commit -am "Release $RELEASE_VERSION [ci skip]"
-          git tag -a v$RELEASE_VERSION-RELEASE -m "Release $RELEASE_VERSION"
-
+          # Remove sufixo SNAPSHOT e gera nova versão
+          RELEASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
+          NEXT_VERSION=$(echo $RELEASE_VERSION | awk -F. 'BEGIN{OFS="."}{$NF+=1; print $0}').0-SNAPSHOT
+          
+          # Executa release prepare com parâmetros dinâmicos
           mvn release:prepare -B \
-            -DreleaseVersion=${{ env.RELEASE_VERSION }} \
-            -DdevelopmentVersion=${{ env.NEXT_VERSION }} \
-            -Dtag=v${{ env.RELEASE_VERSION }}-RELEASE \
+            -DreleaseVersion="$RELEASE_VERSION" \
+            -DdevelopmentVersion="$NEXT_VERSION" \
+            -Dtag="v${RELEASE_VERSION}-RELEASE" \
             -DpushChanges=false \
-            -DautoVersionSubmodules=true
+            -Darguments="-DskipTests"
+
+          # Push das mudanças após release prepare
+          git push origin HEAD:main
+          git push origin "v${RELEASE_VERSION}-RELEASE"
 
   release-perform:
     needs: release-prepare
@@ -127,6 +131,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up JDK 17
@@ -134,6 +139,8 @@ jobs:
         with:
           java-version: 17
           distribution: temurin
+          server-id: github
+          settings-path: ${{ github.workspace }}
 
       - name: Setup Maven
         uses: stCarolas/setup-maven@v4
@@ -141,48 +148,6 @@ jobs:
           maven-version: 3.9.6
 
       - name: Release Perform
-        run: |
-          mvn release:perform
-
-  release:
-    needs: [build-test, docker]
-    if: startsWith(github.ref, 'refs/tags/') && endsWith(github.ref, '-RELEASE')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          java-version: 17
-          distribution: temurin
-
-      - name: Setup Maven
-        uses: stCarolas/setup-maven@v4
-        with:
-          maven-version: 3.9.6
-
-      - name: Release Prepare
-        run: |
-          CURRENT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          RELEASE_VERSION=${CURRENT_VERSION%-SNAPSHOT}
-          NEXT_VERSION=$(echo $RELEASE_VERSION | awk -F. '{$NF = $NF + 1; print $0}' | tr ' ' '.').0-SNAPSHOT
-          
-          mvn versions:set -DnewVersion=$RELEASE_VERSION
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git commit -am "Release $RELEASE_VERSION [ci skip]"
-          git tag -a v$RELEASE_VERSION-RELEASE -m "Release $RELEASE_VERSION"
-
-      - name: Release Perform
-        run: |
-          git push origin $RELEASE_VERSION-RELEASE
-          git push origin HEAD:main
-
-      - name: Update to Next Snapshot
-        run: |
-          mvn versions:set -DnewVersion=$NEXT_VERSION
-          git commit -am "Prepare for next development iteration [ci skip]"
-          git push origin HEAD:main
+        run: mvn release:perform -B -Darguments="-DskipTests"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
