@@ -1,0 +1,51 @@
+name: Maven Release Automation
+
+on:
+  workflow_dispatch:  # Permite acionar manualmente pela UI do GitHub
+    inputs:
+      releaseVersion:
+        description: 'Release Version (ex: 0.0.2)'
+        required: true
+      nextVersion:
+        description: 'Next SNAPSHOT Version (ex: 0.0.3-SNAPSHOT)'
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necessário para tags
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Run Maven Release
+        run: |
+          mvn -B release:prepare \
+            -DreleaseVersion=${{ github.event.inputs.releaseVersion }} \
+            -DdevelopmentVersion=${{ github.event.inputs.nextVersion }} \
+            -DscmCommentPrefix="[maven-release-plugin] " \
+            -Darguments="-DskipTests"
+
+          mvn -B release:perform \
+            -Darguments="-DskipTests"
+
+      - name: Push Changes and Tags
+        run: |
+          git push origin main
+          git push --tags
+
+      - name: Publish to GitHub Packages
+        run: mvn deploy -DskipTests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
