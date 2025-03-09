@@ -1,13 +1,13 @@
 package br.com.moreiracruz.usuarios.service;
 
-import br.com.moreiracruz.usuarios.model.Usuario;
-import br.com.moreiracruz.usuarios.repository.UsuarioRepository;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import br.com.moreiracruz.usuarios.model.Usuario;
+import br.com.moreiracruz.usuarios.repository.UsuarioRepository;
 
 @Service
 public class UsuarioService {
