@@ -98,9 +98,9 @@
 				<artifactId>maven-release-plugin</artifactId>
 				<version>3.1.0</version>
 				<configuration>
-					<tagNameFormat>v@{project.version}</tagNameFormat>
-					<autoVersionSubmodules>true</autoVersionSubmodules>
-					<pushChanges>false</pushChanges>  # GitHub Actions fará o push
+					<pushChanges>false</pushChanges>
+					<localCheckout>true</localCheckout>
+					<preparationGoals>clean verify</preparationGoals>
 				</configuration>
 			</plugin>
 			<plugin>
