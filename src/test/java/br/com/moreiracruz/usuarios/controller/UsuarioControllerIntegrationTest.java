@@ -1,67 +1,90 @@
 package br.com.moreiracruz.usuarios.controller;
 
-import br.com.moreiracruz.usuarios.UsuariosApplication;
+import br.com.moreiracruz.usuarios.dto.UsuarioDTO;
 import br.com.moreiracruz.usuarios.model.Usuario;
+import br.com.moreiracruz.usuarios.repository.UsuarioRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.*;
-import java.net.URI;
-import static org.assertj.core.api.Assertions.assertThat;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
-@SpringBootTest(classes = UsuariosApplication.class,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class UsuarioControllerIntegrationTest {
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+@SpringBootTest
+@AutoConfigureMockMvc
+public class UsuarioControllerIntegrationTest {
 
-    private Usuario usuario;
+	@Autowired
+	private MockMvc mockMvc;
 
-    @BeforeEach
-    void setup() {
-        usuario = new Usuario();
-        usuario.setLogin("test_integration");
-        usuario.setPassword("integration_pass");
-    }
+	@Autowired
+	private UsuarioRepository repository;
 
-    @Test
-    void testFullCrudCycle() {
-        // Create
-        ResponseEntity<Usuario> createResponse = restTemplate.postForEntity(
-                "/usuarios", usuario, Usuario.class);
+	@Autowired
+	private ObjectMapper objectMapper;
 
-        assertThat(createResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        Usuario created = createResponse.getBody();
-        assertThat(created.getId()).isNotNull();
+	private Usuario usuario;
 
-        // Read
-        ResponseEntity<Usuario> getResponse = restTemplate.getForEntity(
-                "/usuarios/" + created.getId(), Usuario.class);
+	@BeforeEach
+	void setUp() {
+		repository.deleteAll();
+		usuario = new Usuario();
+		usuario.setNome("Teste");
+		usuario.setSenha("senha123");
+		usuario = repository.save(usuario);
+	}
 
-        assertThat(getResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(getResponse.getBody().getLogin()).isEqualTo("test_integration");
+	@Test
+	void criarUsuario_deveRetornar201() throws Exception {
+		UsuarioDTO dto = new UsuarioDTO();
+		dto.setNome("Novo Usuario");
+		dto.setSenha("senha456");
 
-        // Update
-        created.setPassword("new_password");
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        RequestEntity<Usuario> requestEntity = new RequestEntity<>(
-                created, headers, HttpMethod.PUT, URI.create("/usuarios/" + created.getId()));
+		mockMvc.perform(post("/usuarios")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(dto)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.nome").value("Novo Usuario"));
+	}
 
-        ResponseEntity<Usuario> updateResponse = restTemplate.exchange(
-                requestEntity, Usuario.class);
+	@Test
+	void buscarPorId_deveRetornar200QuandoEncontrado() throws Exception {
+		mockMvc.perform(get("/usuarios/" + usuario.getId()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.nome").value("Teste"));
+	}
 
-        assertThat(updateResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(updateResponse.getBody().getPassword()).isEqualTo("new_password");
+	@Test
+	void buscarPorId_deveRetornar404QuandoNaoEncontrado() throws Exception {
+		mockMvc.perform(get("/usuarios/999"))
+				.andExpect(status().isConflict());
+	}
 
-        // Delete
-        restTemplate.delete("/usuarios/" + created.getId());
+	@Test
+	void atualizarUsuario_deveRetornar200() throws Exception {
+		UsuarioDTO dto = new UsuarioDTO();
+		dto.setNome("Teste Atualizado");
+		dto.setSenha("senha789");
 
-        ResponseEntity<Usuario> finalGet = restTemplate.getForEntity(
-                "/usuarios/" + created.getId(), Usuario.class);
-        assertThat(finalGet.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+		mockMvc.perform(put("/usuarios/" + usuario.getId())
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(dto)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.nome").value("Teste Atualizado"));
+	}
+
+	@Test
+	void deletarUsuario_deveRetornar204() throws Exception {
+		mockMvc.perform(delete("/usuarios/" + usuario.getId()))
+				.andExpect(status().isNoContent());
+
+		mockMvc.perform(get("/usuarios/" + usuario.getId()))
+				.andExpect(status().isConflict());
+	}
 }

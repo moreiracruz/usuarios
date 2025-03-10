@@ -1,4 +1,4 @@
-package br.com.moreiracruz.usuarios.handler;
+package br.com.moreiracruz.usuarios.exception;
 
 public class BusinessException extends RuntimeException {
 

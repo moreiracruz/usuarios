@@ -11,7 +11,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import br.com.moreiracruz.usuarios.exception.BusinessException;
 import jakarta.annotation.Resource;
+
+import java.time.LocalDateTime;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler  extends ResponseEntityExceptionHandler {
@@ -19,22 +22,23 @@ public class GlobalExceptionHandler  extends ResponseEntityExceptionHandler {
     @Resource
     private MessageSource messageSource;
 
-    private HttpHeaders headers() {
+    HttpHeaders headers() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType((MediaType.APPLICATION_JSON));
         return headers;
     }
 
-    private ResponseError responseError(String message, HttpStatus statusCode) {
+    ResponseError responseError(String message, HttpStatus statusCode) {
         ResponseError responseError = new ResponseError();
         responseError.setStatus("error");
         responseError.setError(message);
         responseError.setStatusCode(statusCode.value());
+        responseError.setTimestamp(LocalDateTime.now());
         return responseError;
     }
 
     @ExceptionHandler(Exception.class)
-    private ResponseEntity<Object> hendleGeneral(Exception e, WebRequest request) {
+    ResponseEntity<Object> hendleGeneral(Exception e, WebRequest request) {
         if (e.getClass().isAssignableFrom(UndeclaredThrowableException.class)) {
             UndeclaredThrowableException exception = (UndeclaredThrowableException) e;
             return handleBusinessException((BusinessException) exception.getUndeclaredThrowable(), request);
@@ -46,7 +50,7 @@ public class GlobalExceptionHandler  extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler({BusinessException.class})
-    private ResponseEntity<Object> handleBusinessException(BusinessException e, WebRequest request) {
+    ResponseEntity<Object> handleBusinessException(BusinessException e, WebRequest request) {
         ResponseError error = responseError(e.getMessage(), HttpStatus.CONFLICT);
         return handleExceptionInternal(e, error, headers(), HttpStatus.CONFLICT, request);
     }

@@ -4,24 +4,32 @@ import br.com.moreiracruz.usuarios.model.Usuario;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
-class UsuarioRepositoryUnitTest {
+public class UsuarioRepositoryUnitTest {
 
     @Autowired
-    private UsuarioRepository usuarioRepository;
+    private UsuarioRepository repository;
 
     @Test
-    void testSaveAndFindUsuario() {
+    void findByNome_deveRetornarUsuarioQuandoExistir() {
         Usuario usuario = new Usuario();
-        usuario.setLogin("testuser");
-        usuario.setPassword("secret");
+        usuario.setNome("Maria");
+        usuario.setSenha("senha123");
+        repository.save(usuario);
 
-        Usuario saved = usuarioRepository.save(usuario);
-        Usuario found = usuarioRepository.findById(saved.getId()).orElse(null);
+        Optional<Usuario> encontrado = repository.findByNome("Maria");
+        assertTrue(encontrado.isPresent());
+        assertEquals("Maria", encontrado.get().getNome());
+    }
 
-        assertNotNull(found);
-        assertEquals("testuser", found.getLogin());
+    @Test
+    void findByNome_deveRetornarVazioQuandoNaoExistir() {
+        Optional<Usuario> encontrado = repository.findByNome("Inexistente");
+        assertTrue(encontrado.isEmpty());
     }
 }

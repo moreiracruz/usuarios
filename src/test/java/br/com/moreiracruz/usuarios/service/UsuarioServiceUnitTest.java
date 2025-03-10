@@ -1,79 +1,85 @@
 package br.com.moreiracruz.usuarios.service;
 
-import br.com.moreiracruz.usuarios.model.Usuario;
-import br.com.moreiracruz.usuarios.repository.UsuarioRepository;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
-import java.util.Optional;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import br.com.moreiracruz.usuarios.dto.UsuarioDTO;
+import br.com.moreiracruz.usuarios.dto.UsuarioMapper;
+import br.com.moreiracruz.usuarios.exception.ResourceNotFoundException;
+import br.com.moreiracruz.usuarios.model.Usuario;
+import br.com.moreiracruz.usuarios.repository.UsuarioRepository;
 
 @ExtendWith(MockitoExtension.class)
-class UsuarioServiceUnitTest {
+public class UsuarioServiceUnitTest {
 
     @Mock
-    private UsuarioRepository usuarioRepository;
+    private UsuarioRepository repository;
+
+    @Mock
+    private UsuarioMapper mapper;
 
     @InjectMocks
-    private UsuarioService usuarioService;
+    private UsuarioService service;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+    }
 
     @Test
-    void testBuscarUsuario() {
+    void findAll_deveRetornarListaVaiza() {
+        when(repository.findAll()).thenReturn(List.of());
+        assertNotNull(service.findAll());
+    }
+
+    @Test
+    void findById_deveLancarExcecaoQuandoNaoEncontrado() {
+        when(repository.findById(1L)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> service.findById(1L));
+    }
+
+    @Test
+    void findByNome_deveLancarExcecaoQuandoNaoEncontrado() {
+        when(repository.findByNome("Nome")).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> service.findByNome("Nome"));
+    }
+
+    @Test
+    void save_deveRetornarUsuarioDTO() {
+        UsuarioDTO dto = new UsuarioDTO();
         Usuario usuario = new Usuario();
-        usuario.setId(1);
-        usuario.setLogin("newuser");
-        when(usuarioRepository.findById(1)).thenReturn(Optional.of(usuario));
-        Usuario found = usuarioService.buscarPorId(1);
-        assertEquals(1, found.getId());
-        assertEquals("newuser", found.getLogin());
+        when(mapper.toEntity(dto)).thenReturn(usuario);
+        when(repository.save(usuario)).thenReturn(usuario);
+        when(mapper.toDTO(usuario)).thenReturn(dto);
+
+        assertEquals(dto, service.save(dto));
     }
 
     @Test
-    void testBuscarUsuarioInexistente() {
-        when(usuarioRepository.findById(1)).thenReturn(Optional.empty());
-        assertThrows(RuntimeException.class, () -> usuarioService.buscarPorId(1));
+    void update_deveLancarExcecaoQuandoUsuarioNaoExiste() {
+        UsuarioDTO dto = new UsuarioDTO();
+        dto.setNome("Atualizado");
+        dto.setSenha("novaSenha");
+
+        when(repository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> service.update(1L, dto));
     }
 
     @Test
-    void testBuscarUsuarios() {
-        Usuario usuario = new Usuario();
-        usuario.setId(1);
-        usuario.setLogin("newuser");
-        List<Usuario> usuarios = List.of(usuario);
-        when(usuarioRepository.findAll()).thenReturn(usuarios);
-        List<Usuario> foundry = usuarioService.listarTodos();
-        assertEquals(usuarios, foundry);
-    }
-
-    @Test
-    void testCriarUsuario() {
-        Usuario usuario = new Usuario();
-        usuario.setLogin("newuser");
-        when(usuarioRepository.save(any(Usuario.class))).thenReturn(usuario);
-
-        Usuario saved = usuarioService.criar(usuario);
-        assertEquals("newuser", saved.getLogin());
-    }
-
-    @Test
-    void testAtualizarUsuario() {
-        Usuario existing = new Usuario();
-        existing.setId(1);
-        existing.setLogin("olduser");
-
-        when(usuarioRepository.findById(1)).thenReturn(Optional.of(existing));
-        when(usuarioRepository.save(any(Usuario.class))).thenReturn(existing);
-
-        Usuario updatedDetails = new Usuario();
-        updatedDetails.setLogin("newuser");
-        Usuario updated = usuarioService.atualizar(1, updatedDetails);
-
-        assertEquals("newuser", updated.getLogin());
+    void delete_deveChamarRepositoryDelete() {
+        service.delete(1L);
+        verify(repository, times(1)).deleteById(1L);
     }
 }

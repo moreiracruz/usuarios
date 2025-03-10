@@ -1,45 +1,58 @@
 package br.com.moreiracruz.usuarios.service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import br.com.moreiracruz.usuarios.dto.UsuarioDTO;
+import br.com.moreiracruz.usuarios.dto.UsuarioMapper;
+import br.com.moreiracruz.usuarios.exception.ResourceNotFoundException;
 import br.com.moreiracruz.usuarios.model.Usuario;
 import br.com.moreiracruz.usuarios.repository.UsuarioRepository;
 
 @Service
 public class UsuarioService {
 
-    @Autowired
-    private UsuarioRepository usuarioRepository;
+	@Autowired
+	private UsuarioRepository repository;
 
-    public List<Usuario> listarTodos() {
-        return usuarioRepository.findAll();
-    }
+	@Autowired
+	private UsuarioMapper mapper;
 
-    public Usuario buscarPorId(Integer id) {
-        return usuarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
-    }
+	public List<UsuarioDTO> findAll() {
+		return repository.findAll().stream().map(mapper::toDTO).collect(Collectors.toList());
+	}
 
-    @Transactional
-    public Usuario criar(Usuario usuario) {
-        return usuarioRepository.save(usuario);
-    }
+	public UsuarioDTO findById(Long id) {
+		Usuario usuario = repository.findById(id)
+				.orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+		return mapper.toDTO(usuario);
+	}
 
-    @Transactional
-    public Usuario atualizar(Integer id, Usuario usuarioDetails) {
-        Usuario usuario = buscarPorId(id);
-        usuario.setLogin(usuarioDetails.getLogin());
-        usuario.setPassword(usuarioDetails.getPassword());
-        return usuarioRepository.save(usuario);
-    }
+	public UsuarioDTO findByNome(String nome) {
+		Usuario usuario = repository.findByNome(nome)
+				.orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+		return mapper.toDTO(usuario);
+	}
 
-    @Transactional
-    public void deletar(Integer id) {
-        Usuario usuario = buscarPorId(id);
-        usuarioRepository.delete(usuario);
-    }
+	public UsuarioDTO save(UsuarioDTO usuarioDTO) {
+		Usuario usuario = mapper.toEntity(usuarioDTO);
+		usuario = repository.save(usuario);
+		return mapper.toDTO(usuario);
+	}
+
+	public UsuarioDTO update(Long id, UsuarioDTO usuarioDTO) {
+		Usuario usuario = repository.findById(id)
+				.orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
+		usuario.setNome(usuarioDTO.getNome());
+		usuario.setSenha(usuarioDTO.getSenha());
+		usuario = repository.save(usuario);
+		return mapper.toDTO(usuario);
+	}
+
+	public void delete(Long id) {
+		repository.deleteById(id);
+	}
 }
